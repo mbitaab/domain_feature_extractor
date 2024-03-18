@@ -201,51 +201,6 @@ def convert_to_feature(icann_data, countries, html_string, url, data_file="IP2LO
 
     return X
 
-def get_whois_sa(whois_df, domain):
-    # get countries list
-    countries_pd = pd.read_csv('./assets/country.csv')
-    countries_dict = {}
-    for row in countries_pd.iterrows():
-        countries_dict[row[1]['value'].lower()] = row[1]['id']
-    countries_dict['redacted for privacy'] = 'redacted for privacy'
-    
-    domain_info = whois_df
-    whois_dict = {
-         'domain_name': domain,
-         'registrar': None,
-         'whois_server': None,
-         'referral_url': None,
-         'updated_date': None,
-         'creation_date': None,
-         'expiration_date': None,
-         'name_servers': None,
-         'status': None,
-         'emails': None,
-         'dnssec': None,
-         'name': None,
-         'country': None
-    }
-    
-    # print(domain_info)
-
-    # get date features
-    for new_key, date_related_key in [('creation_date', 'registration_created'), ('updated_date', 'registration_updated'), ('expiration_date', 'registration_expires')]:
-        if domain_info[date_related_key] is not None:
-            # normal the date if not standart
-            date_str = domain_info[date_related_key]
-            whois_dict[new_key] = datetime.datetime.strptime(date_str, '%Y-%m-%d')
-        
-    # get country
-    if domain_info['registrant']['country'] is not None:
-        whois_dict['country'] = domain_info['registrant']['country'].lower()
-        
-    # get registarname
-    if domain_info['registrant']['name'] is not None:
-        whois_dict['registrar'] = domain_info['registrant']['name']
-            
-    
-    return whois_dict
-
 def get_source(driver, url, output_file):
 
     try:
@@ -331,6 +286,7 @@ class Crawler:
                 options.add_experimental_option("prefs", prefs)
                 print(f"sel add : {selenium_address}")
                 driver = webdriver.Remote(selenium_address, d, options=options)
+                driver.set_page_load_timeout(10)
                 print(f'************************************ {fpath} ***********')
                 get_source(driver, url, fpath)
                 # Close the browser
@@ -427,8 +383,8 @@ def main(args):
     print(f"urls : {len(urls)} , args.num_procs : {args.num_procs} , n :{n}")
     pool = Pool(args.num_procs)
     results = pool.map(crawl_list, urls)
-    pool.close()
-    pool.join()
+    #pool.close()
+    #pool.join()
 
     print('Merging the results ...')
 
