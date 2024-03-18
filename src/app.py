@@ -352,8 +352,8 @@ def main(args):
 
     print('Total number of domains = %d' %len(all_urls))
 
-    if args.random_choose != -1 and len(all_urls) > args.random_choose:
-        all_urls = random.sample(all_urls, args.random_choose)
+    if random_choose != -1 and len(all_urls) > random_choose:
+        all_urls = random.sample(all_urls, random_choose)
         with open(args.input_file.replace('all_data_', 'some_data_'), 'w') as fout:
             for url in all_urls:
                 fout.write(url.strip() + '\n')
@@ -368,20 +368,20 @@ def main(args):
             continue
 
         all_urls_added.append([
-            u, ind, args.cache_mode, args.source_path
+            u, ind, cache_mode, args.source_path
         ])
 
     print('Total number of domains = %d' %len(all_urls_added))
 
     # create batches according to num_procs
-    if len(all_urls_added) // args.num_procs == 0 :
+    if len(all_urls_added) // number_proc == 0 :
         n = 1
     else:
-        n = len(all_urls_added) // args.num_procs
+        n = len(all_urls_added) // number_proc
     
     urls = [all_urls_added[i * n:(i + 1) * n] for i in range((len(all_urls_added) + n - 1) // n )] 
-    print(f"urls : {len(urls)} , args.num_procs : {args.num_procs} , n :{n}")
-    pool = Pool(args.num_procs)
+    print(f"urls : {len(urls)} , num_procs : {number_proc} , n :{n}")
+    pool = Pool(number_proc)
     results = pool.map(crawl_list, urls)
     #pool.close()
     #pool.join()
@@ -411,12 +411,9 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Optional app description')
 
-    parser.add_argument('--num_procs', type=int, help='number of processes', required=True)
     parser.add_argument('--input_file', type=str, help='input txt/json of urls', required=True)
-    parser.add_argument('--source_path', type=str, help='input txt/json of urls', required=True)
+    parser.add_argument('--source_path', type=str, help='directory , save html file', required=True)
     parser.add_argument('--output_file', type=str, help='output file', required=True)
-    parser.add_argument('--cache_mode', action='store_true', help='use SA mode', required=False, default=False)
-    parser.add_argument('--random_choose', help='random select urls', required=False, type=int, default=-1)
 
     args = parser.parse_args()
     main(args)

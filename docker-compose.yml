@@ -31,6 +31,8 @@ services:
     container_name: domain-feature-extractor
     environment:
       SELENIUM_ADDRESS: "http://10.90.78.133:4449"
+      NUMBER_PROC: 1
+      RANDOM_CHOOSE: 20000
     volumes:
       - volume_domain_fe:/app/data
     networks:
