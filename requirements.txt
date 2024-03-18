@@ -1,0 +1,10 @@
+beautifulsoup4==4.12.3
+IP2Location==8.10.2
+numpy==1.26.4
+pandas==2.0.3
+python_whois==0.8.0
+selenium==4.18.1
+tqdm==4.66.2
+undetected_chromedriver==3.5.5
+urllib3==1.26.18
+whois==0.9.27
