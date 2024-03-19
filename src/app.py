@@ -352,12 +352,6 @@ def main(args):
 
     print('Total number of domains = %d' %len(all_urls))
 
-    if random_choose != -1 and len(all_urls) > random_choose:
-        all_urls = random.sample(all_urls, random_choose)
-        with open(args.input_file.replace('all_data_', 'some_data_'), 'w') as fout:
-            for url in all_urls:
-                fout.write(url.strip() + '\n')
-
     all_urls_added = []
     visited_domains = set()
     for ind, u in enumerate(list(set(all_urls))):
