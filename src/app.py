@@ -178,26 +178,12 @@ def convert_to_feature(icann_data, countries, html_string, url, data_file="IP2LO
         is_cheap,
         uses_cheap_domain,
         domain_in_text,
-        0,
         1 if u.split('.')[-1] not in ['com', 'net', 'org', 'uk', 'gov', 'au'] else 0,
         total_age,
     ])
 
     X[-1].extend(country_feature)
     X[-1].extend(host_country_feature)
-
-    # count missing features
-    missings = 0
-
-    for i in X[-1]:
-        if i == -1:
-            missings += 1
-    if country == -1:
-        missings += 1
-    if host_country == -1:
-        missings += 1
-
-    X[-1].append(missings)
 
     return X
 
