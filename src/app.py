@@ -40,6 +40,26 @@ import undetected_chromedriver as uc
 from config import *
 import multiprocessing as mp
 
+def is_content_parked(content):
+    return any(re.findall(r'buy this domain|parked free|godaddy|is for sale'
+                          r'|domain parking|renew now|this domain|namecheap|buy now for'
+                          r'|hugedomains|is owned and listed by|sav.com|searchvity.com'
+                          r'|domain for sale|register4less|aplus.net|related searches'
+                          r'|related links|search ads|domain expert|united domains'
+                          r'|domian name has been registered|this domain may be for sale'
+                          r'|domain name is available for sale|premium domain'
+                          r'|this domain name|this domain has expired|domainpage.io'
+                          r'|sedoparking.com|parking-lander', content, re.IGNORECASE))
+
+
+def write_log(file,data,verbose=True):
+    if verbose:
+        current_date_time=datetime.now()
+        current_date_time_str = current_date_time.strftime('%Y-%m-%d %H:%M:%S')
+        print(current_date_time_str+"||"+data)
+        file.write(current_date_time_str+"||"+data+"\n")
+        file.flush()
+
 def check_url(url):
     u = urlsplit(url)
     # Check if the scheme of the URL is HTTP or HTTPS
@@ -202,10 +222,11 @@ def get_source(driver, url, output_file):
         fout = open(output_file, 'w')
         fout.write(content)
         fout.close()
+        return content
         
     except Exception as e:
         print('Remote Error:', e)
-     
+        return None
 
 
 class Crawler:
@@ -274,11 +295,10 @@ class Crawler:
                 driver = webdriver.Remote(selenium_address, d, options=options)
                 driver.set_page_load_timeout(10)
                 print(f'************************************ {fpath} ***********')
-                get_source(driver, url, fpath)
+                page_content = get_source(driver, url, fpath)
                 # Close the browser
                 driver.quit()
 
-                page_content = open(fpath, 'r', errors='ignore').read()
             except Exception as e:
                 print(f"error in get page source {e}")
                 self.ip_failed_urls.append((url, 'content'))
@@ -287,7 +307,7 @@ class Crawler:
             page_content = open(fpath, 'r', errors='ignore').read()
 
         # create features
-        if page_content != None and len(page_content) > 3000:
+        if page_content != None and len(page_content) > 3000 and not is_content_parked(page_content):
             sample_features = convert_to_feature({url: icann_data}, self.countries, page_content, url, './assets/IP2LOCATION-LITE-DB1.BIN')
 
             self.X.append(sample_features)
@@ -321,22 +341,24 @@ def crawl_list(urls):
 def main(args):
     # create processes to crawl
     all_urls = []
+    if args.url:
+        all_urls.append(args.url)
+    else:
+        with open(args.input_file, 'r', encoding='utf-8') as fin:
+            for line in fin.readlines():
+                line = line.strip().replace('"', '')
+                if line == '':
+                    continue
 
-    with open(args.input_file, 'r', encoding='utf-8') as fin:
-        for line in fin.readlines():
-            line = line.strip().replace('"', '')
-            if line == '':
-                continue
+                u = check_url(line)
+                # unify urls
+                u = u.replace('https://', '').replace('http://', '')
 
-            u = check_url(line)
-            # unify urls
-            u = u.replace('https://', '').replace('http://', '')
+                if '/' in u:
+                    u = u.split('/')[0]
+                all_urls.append(u)
 
-            if '/' in u:
-                u = u.split('/')[0]
-            all_urls.append(u)
-
-    print('Total number of domains = %d' %len(all_urls))
+    write_log('Total number of domains = %d' %len(all_urls))
 
     all_urls_added = []
     visited_domains = set()
@@ -390,8 +412,8 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Optional app description')
-
-    parser.add_argument('--input_file', type=str, help='input txt/json of urls', required=True)
+    parser.add_argument('--url', type=str, help='input urls', required=False)
+    parser.add_argument('--input_file', type=str, help='input txt/json of urls', required=False)
     parser.add_argument('--source_path', type=str, help='directory , save html file', required=True)
     parser.add_argument('--output_file', type=str, help='output file', required=True)
 
