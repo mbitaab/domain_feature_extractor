@@ -26,7 +26,7 @@ import IP2Location
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 import socket
-import datetime
+from datetime import datetime
 import pandas as pd
 import numpy as np
 import numpy as np
@@ -52,13 +52,14 @@ def is_content_parked(content):
                           r'|sedoparking.com|parking-lander', content, re.IGNORECASE))
 
 
-def write_log(file,data,verbose=True):
+def write_log(data,file=None,verbose=True):
     if verbose:
         current_date_time=datetime.now()
         current_date_time_str = current_date_time.strftime('%Y-%m-%d %H:%M:%S')
         print(current_date_time_str+"||"+data)
-        file.write(current_date_time_str+"||"+data+"\n")
-        file.flush()
+        if file:
+            file.write(current_date_time_str+"||"+data+"\n")
+            file.flush()
 
 def check_url(url):
     u = urlsplit(url)
@@ -358,7 +359,7 @@ def main(args):
                     u = u.split('/')[0]
                 all_urls.append(u)
 
-    write_log(f'Total number of domains = {len(all_urls)}')
+    write_log(data=f'Total number of domains = {len(all_urls)}')
 
     all_urls_added = []
     visited_domains = set()
@@ -418,4 +419,21 @@ if __name__ == '__main__':
     parser.add_argument('--output_file', type=str, help='output file', required=True)
 
     args = parser.parse_args()
+
+    print("[+] start create dir")
+    directory = os.path.dirname(args.output_file)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        print(f"Created directory: {directory}")
+    else:
+        print(f"Directory already exists: {directory}")
+    subdirectories = ['source_home', 'screenshots', 'source_checkout']
+    for subdir in subdirectories:
+        sub_path = os.path.join(directory, subdir)
+        if not os.path.exists(sub_path):
+            os.makedirs(sub_path)
+            print(f"Created subdirectory: {sub_path}")
+        else:
+            print(f"Subdirectory already exists: {sub_path}")
+
     main(args)
