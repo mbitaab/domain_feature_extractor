@@ -358,7 +358,7 @@ def main(args):
                     u = u.split('/')[0]
                 all_urls.append(u)
 
-    write_log('Total number of domains = %d' %len(all_urls))
+    write_log(f'Total number of domains = {len(all_urls)}')
 
     all_urls_added = []
     visited_domains = set()
