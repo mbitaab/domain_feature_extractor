@@ -297,6 +297,7 @@ class Crawler:
                 driver.set_page_load_timeout(10)
                 print(f'************************************ {fpath} ***********')
                 page_content = get_source(driver, url, fpath)
+                print(page_content)
                 # Close the browser
                 driver.quit()
 
@@ -306,6 +307,7 @@ class Crawler:
                 pass
         else:
             page_content = open(fpath, 'r', errors='ignore').read()
+            print(page_content)
 
         # create features
         if page_content != None and len(page_content) > 3000 and not is_content_parked(page_content):
