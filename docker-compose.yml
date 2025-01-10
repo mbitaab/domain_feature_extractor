@@ -1,0 +1,55 @@
+version: '3.8'
+services:
+# ************** selenium grid **************
+  selenium-grid:
+    image: seleniarm/standalone-chromium:latest
+    container_name: selenium-grid-domain-feature-extractor
+    ports:
+      - "4449:4444"
+    environment:
+      SE_NODE_MAX_SESSIONS: 10
+      SE_NODE_OVERRIDE_MAX_SESSIONS: "true"
+      SE_NODE_SESSION_TIMEOUT: 1000
+      PYTHONUNBUFFERED: 1
+    shm_size: 4g
+    volumes:
+      - /dev/shm:/dev/shm
+    networks:
+      - app-network-domain-fe
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
+# ************** App **************
+  app:
+    build: .
+    container_name: domain-feature-extractor
+    environment:
+      SELENIUM_ADDRESS: "http://10.90.78.133:4449"
+      NUMBER_PROC: 1
+      RANDOM_CHOOSE: 20000
+    volumes:
+      - volume_domain_fe:/app/data
+    networks:
+      - app-network-domain-fe
+
+# **************** Volume ****************
+volumes:
+  volume_domain_fe:
+    driver: local
+    driver_opts:
+      type: none
+      o: 'bind'
+      device: '/mnt/marzi/projects/scammagnifier/volumes'
+
+
+# **************** Network ****************
+networks:
+  app-network-domain-fe:
+    driver: bridge
+
