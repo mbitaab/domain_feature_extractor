@@ -8,14 +8,12 @@ python crawler_mp.py --num_procs 5 --input_file /home/ubuntu/new_drive/backupp/S
 '''
 
 
-import numpy as np
-import subprocess
 import json
 import pickle
-import random
 import whois
 import re
 import pandas as pd
+import langid
 import argparse
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -24,33 +22,48 @@ import os
 from urllib.parse import urlsplit
 import IP2Location
 from bs4 import BeautifulSoup
-from tqdm import tqdm
 import socket
 from datetime import datetime
-import pandas as pd
-import numpy as np
-import numpy as np
 import time
 from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-from selenium.webdriver.chrome.options import Options
 import undetected_chromedriver as uc
 from config import *
-import multiprocessing as mp
 
 def is_content_parked(content):
     return any(re.findall(r'buy this domain|parked free|godaddy|is for sale'
                           r'|domain parking|renew now|this domain|namecheap|buy now for'
                           r'|hugedomains|is owned and listed by|sav.com|searchvity.com'
                           r'|domain for sale|register4less|aplus.net|related searches'
+                          r'|be the first to know when we launch|get notified when we open our online store'
                           r'|related links|search ads|domain expert|united domains'
                           r'|domian name has been registered|this domain may be for sale'
                           r'|domain name is available for sale|premium domain'
+                          r'|registrar placeholder|under construction|coming soon'
                           r'|this domain name|this domain has expired|domainpage.io'
-                          r'|sedoparking.com|parking-lander', content, re.IGNORECASE))
+                          r'|sedoparking.com|parking-lander'
+                          r'|create your website'
+                          r'|something really good is coming very soon'
+                          r'|this domain is available on auction'
+                          r'|opening soon'
+                          r'|this page isn\'t working'
+                          r'|sorry, you have been blocked'
+                          r'|you are unable to access'
+                          r'|this content isn\'t available right now'
+                          r'|redirected you too many times', content, re.IGNORECASE))
 
+def filter_lang(text, selected_langs):
+    language, _ = langid.classify(text)
+    if language in selected_langs:
+        return True
+    return False
+
+def normalize_url(url):
+    prefixes = ['https://www.', 'http://www.', 'www.']
+    for prefix in prefixes:
+        if url.startswith(prefix):
+            return url[len(prefix):]
+    return url
 
 def write_log(data,file=None,verbose=True):
     if verbose:
@@ -68,10 +81,20 @@ def check_url(url):
         return u.netloc
     else:
         return u.path
+
+def extract_body_text(page_source):
+    # Parse the page source using BeautifulSoup
+    soup = BeautifulSoup(page_source, 'html.parser')  # You can also use 'html.parser' instead of 'lxml'
     
+    # Extract the body text. If the body tag is not found, return an empty string
+    body_text = soup.body.get_text(separator=' ', strip=True) if soup.body else ''
+    
+    return body_text
+  
 def convert_to_feature(icann_data, countries, html_string, url, data_file="IP2LOCATION-LITE-DB1.BIN"):
     ip_location = IP2Location.IP2Location(data_file)
-    u = check_url(url)
+    _url = check_url(url)
+    u = normalize_url(_url)
     X = []
 
     # range
@@ -231,10 +254,11 @@ def get_source(driver, url, output_file):
 
 
 class Crawler:
-    def __init__(self, pid, cache_mode, source_path):
+    def __init__(self, pid, cache_mode, source_path, lang_list):
         self.pid = pid
         self.cache_mode = cache_mode
         self.source_path = source_path
+        self.lang_list = lang_list
 
         # load whois data
         self.whois_data = {}
@@ -258,6 +282,7 @@ class Crawler:
         unified_url_whois = {check_url(url): value for url, value in self.whois_data.items()}
 
         # get whois data
+        icann_data = {}
         try:
             if url in unified_url_whois :
                 icann_data = unified_url_whois[url]
@@ -265,14 +290,11 @@ class Crawler:
                 icann_data = whois.whois(url)
                 self.whois_data[url] = icann_data
 
-            if icann_data == {} or 'creation_date' not in icann_data or icann_data['creation_date'] == None:
-                self.ip_failed_urls.append((url, 'whois'))
-                return
+            # if icann_data == {} or 'creation_date' not in icann_data or icann_data['creation_date'] == None:
+            #     self.ip_failed_urls.append((url, 'whois'))
+            #     return
         except Exception as e:
             print(f"get whois error : {e}")
-            self.ip_failed_urls.append((url, 'whois'))
-            # print(full_stack())
-            return
   
 
         # get page source (from cache or DL)
@@ -297,7 +319,6 @@ class Crawler:
                 driver.set_page_load_timeout(10)
                 print(f'************************************ {fpath} ***********')
                 page_content = get_source(driver, url, fpath)
-                print(page_content)
                 # Close the browser
                 driver.quit()
 
@@ -307,16 +328,20 @@ class Crawler:
                 pass
         else:
             page_content = open(fpath, 'r', errors='ignore').read()
-            print(page_content)
 
-        # create features
-        if page_content != None and len(page_content) > 3000 and not is_content_parked(page_content):
-            sample_features = convert_to_feature({url: icann_data}, self.countries, page_content, url, './assets/IP2LOCATION-LITE-DB1.BIN')
+        if page_content:
+            page_text = extract_body_text(page_content)
+            # create features
+            print(f"parked : {is_content_parked(page_content)}")
+            print(f"lang : {filter_lang(page_text, self.lang_list)}")
+            #if len(page_content) > 3000 and not is_content_parked(page_content) and filter_lang(page_text, self.lang_list):
+            if len(page_content) > 3000 and not is_content_parked(page_content) :
+                sample_features = convert_to_feature({url: icann_data}, self.countries, page_content, url, './assets/IP2LOCATION-LITE-DB1.BIN')
 
-            self.X.append(sample_features)
-            self.collected_urls.append(url)
-        else:
-            self.ip_failed_urls.append((url, 'too little content'))
+                self.X.append(sample_features)
+                self.collected_urls.append(url)
+            else:
+                self.ip_failed_urls.append((url, 'too little content'))
 
 
 def crawl_list(urls):
@@ -324,7 +349,8 @@ def crawl_list(urls):
     print("start thread ...")
     cache_mode = urls[0][2]
     source_path = urls[0][3]
-    crawler = Crawler(os.getpid(), cache_mode, source_path)
+    lang_list = urls[0][4]
+    crawler = Crawler(os.getpid(), cache_mode, source_path, lang_list)
 
     # get process num
     if urls[0][1] == 0:
@@ -364,7 +390,10 @@ def main(args):
     write_log(data=f'Total number of domains = {len(all_urls)}')
 
     all_urls_added = []
+    selected_langs_str = args.selected_languages
+    lang_list = selected_langs_str.split(',')
     visited_domains = set()
+
     for ind, u in enumerate(list(set(all_urls))):
         domain = u
         if domain not in visited_domains:
@@ -373,7 +402,7 @@ def main(args):
             continue
 
         all_urls_added.append([
-            u, ind, cache_mode, args.source_path
+            u, ind, cache_mode, args.source_path, lang_list
         ])
 
     print('Total number of domains = %d' %len(all_urls_added))
@@ -419,6 +448,7 @@ if __name__ == '__main__':
     parser.add_argument('--input_file', type=str, help='input txt/json of urls', required=False)
     parser.add_argument('--source_path', type=str, help='directory , save html file', required=True)
     parser.add_argument('--output_file', type=str, help='output file', required=True)
+    parser.add_argument('--selected_languages', type=str, help='list of desired languages, comma seprated, no space', required=True)
 
     args = parser.parse_args()
 
